@@ -20,13 +20,11 @@ So sánh 2 chiến lược join:
 
 ## Kết quả Benchmark
 
-| Chiến lược  | Trung bình (5 lần) | Ghi chú                |
-| ----------- | ------------------ | ---------------------- |
-| Graph-first | 1758 ms            | Lần 1 cold start ~8.4s |
-| SQL-first   | 124 ms             | Ổn định hơn            |
-| **Winner**  | **SQL-first**      | Nhanh hơn ~14x         |
-
-> Bỏ lần 1 (cold start): Graph-first ~94ms vs SQL-first ~26ms → SQL-first nhanh hơn **3.6 lần**
+| Chiến lược | TB cả 5 lần | TB bỏ lần 1 | Ghi chú |
+|---|---|---|---|
+| Graph-first | 214.41 ms | 47.59 ms | Lần 1 cold start ~881ms |
+| SQL-first | 28.12 ms | 16.50 ms | Ổn định hơn |
+| **Winner** | **SQL-first** | **SQL-first** | Nhanh hơn ~2.9 lần (warm) |
 
 ---
 
