@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import mysql.connector
 from neo4j import GraphDatabase
@@ -10,18 +11,54 @@ load_dotenv()
 KEVIN_ID = 4724
 REVENUE_THRESHOLD = 100_000_000
 
-# Kết nối database
-mysql_conn = mysql.connector.connect(
-    host=os.getenv("MYSQL_HOST"),
-    port=int(os.getenv("MYSQL_PORT")),
-    user=os.getenv("MYSQL_USER"),
-    password=os.getenv("MYSQL_PASSWORD"),
-    database=os.getenv("MYSQL_DB")
-)
-neo4j_driver = GraphDatabase.driver(
-    os.getenv("NEO4J_URI"),
-    auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
-)
+# ── Kết nối database với retry khởi tạo ────────────────────────────────
+def connect_mysql(max_retries=5, delay=3):
+    for attempt in range(max_retries):
+        try:
+            conn = mysql.connector.connect(
+                host=os.getenv("MYSQL_HOST"),
+                port=int(os.getenv("MYSQL_PORT")),
+                user=os.getenv("MYSQL_USER"),
+                password=os.getenv("MYSQL_PASSWORD"),
+                database=os.getenv("MYSQL_DB"),
+                connection_timeout=10,
+                pool_name="benchmark_pool",
+                pool_size=3,
+            )
+            conn.cursor().execute("SELECT 1")
+            print("    ✅ Kết nối MySQL thành công")
+            return conn
+        except mysql.connector.Error as e:
+            print(f"    ⚠️  Kết nối MySQL lần {attempt+1}/{max_retries}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+            else:
+                print("❌ Không thể kết nối MySQL. Thoát.")
+                sys.exit(1)
+
+def connect_neo4j(max_retries=5, delay=3):
+    for attempt in range(max_retries):
+        try:
+            driver = GraphDatabase.driver(
+                os.getenv("NEO4J_URI"),
+                auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD")),
+                max_connection_lifetime=3600,
+            )
+            with driver.session() as s:
+                s.run("RETURN 1")
+            print("    ✅ Kết nối Neo4j thành công")
+            return driver
+        except Exception as e:
+            print(f"    ⚠️  Kết nối Neo4j lần {attempt+1}/{max_retries}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+            else:
+                print("❌ Không thể kết nối Neo4j. Thoát.")
+                sys.exit(1)
+
+print("    Đang kết nối databases...")
+mysql_conn = connect_mysql()
+neo4j_driver = connect_neo4j()
 
 # ── CHIẾN LƯỢC 1: Graph-first ──────────────────────────────────────────
 def strategy_graph_first():
@@ -54,14 +91,26 @@ def strategy_graph_first():
     # Bước 3: MySQL lọc revenue > $100M
     t0 = time.perf_counter()
     cursor = mysql_conn.cursor()
-    fmt = ",".join(["%s"] * len(movie_ids))
-    cursor.execute(f"""
-        SELECT m.movie_id, m.title, m.revenue
-        FROM movies m
-        WHERE m.movie_id IN ({fmt}) AND m.revenue > %s
-        ORDER BY m.revenue DESC
-    """, (*movie_ids, REVENUE_THRESHOLD))
-    qualifying_movies = cursor.fetchall()
+    try:
+        if movie_ids:
+            fmt = ",".join(["%s"] * len(movie_ids))
+            cursor.execute(f"""
+                SELECT m.movie_id, m.title, m.revenue
+                FROM movies m
+                WHERE m.movie_id IN ({fmt}) AND m.revenue > %s
+                ORDER BY m.revenue DESC
+            """, (*movie_ids, REVENUE_THRESHOLD))
+        else:
+            cursor.execute("""
+                SELECT m.movie_id, m.title, m.revenue
+                FROM movies m
+                WHERE m.revenue > %s
+                ORDER BY m.revenue DESC
+                LIMIT 0
+            """, (REVENUE_THRESHOLD,))
+        qualifying_movies = cursor.fetchall()
+    finally:
+        cursor.close()
     steps["mysql_filter_revenue"] = round((time.perf_counter() - t0) * 1000, 2)
 
     total = round((time.perf_counter() - t_total) * 1000, 2)
@@ -75,8 +124,11 @@ def strategy_sql_first():
     # Bước 1: MySQL lấy movie_ids có revenue > $100M
     t0 = time.perf_counter()
     cursor = mysql_conn.cursor()
-    cursor.execute("SELECT movie_id FROM movies WHERE revenue > %s", (REVENUE_THRESHOLD,))
-    rich_movie_ids = [r[0] for r in cursor.fetchall()]
+    try:
+        cursor.execute("SELECT movie_id FROM movies WHERE revenue > %s", (REVENUE_THRESHOLD,))
+        rich_movie_ids = [r[0] for r in cursor.fetchall()]
+    finally:
+        cursor.close()
     steps["mysql_filter_revenue"] = round((time.perf_counter() - t0) * 1000, 2)
 
     # Bước 2: Neo4j tìm actors đóng cùng Kevin Bacon trong những phim đó

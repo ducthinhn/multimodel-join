@@ -1,23 +1,62 @@
 import json
 import os
+import sys
+import time
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
 load_dotenv()
 
-driver = GraphDatabase.driver(
-    os.getenv("NEO4J_URI"),
-    auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
-)
+# Đường dẫn tuyệt đối
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+
+# ── Kết nối Neo4j với retry ───────────────────────────────────────────────
+def connect_neo4j(max_retries=5, delay=3):
+    """Kết nối Neo4j với retry nếu chưa sẵn sàng."""
+    for attempt in range(max_retries):
+        try:
+            driver = GraphDatabase.driver(
+                os.getenv("NEO4J_URI"),
+                auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD")),
+                max_connection_lifetime=3600,
+            )
+            # Verify connection bằng ping
+            with driver.session() as s:
+                s.run("RETURN 1")
+            print("    ✅ Kết nối Neo4j thành công")
+            return driver
+        except Exception as e:
+            print(f"    ⚠️  Lần {attempt+1}/{max_retries}: {e}")
+            if attempt < max_retries - 1:
+                print(f"    Đợi {delay}s trước khi thử lại...")
+                time.sleep(delay)
+            else:
+                print("❌ Không thể kết nối Neo4j sau nhiều lần thử. Thoát.")
+                sys.exit(1)
+
+driver = connect_neo4j()
 
 print("=== Import dữ liệu vào Neo4j ===")
 
 # Đọc dữ liệu
-with open("data/actors.json", encoding="utf-8") as f:
+data_files = {
+    "actors": os.path.join(DATA_DIR, "actors.json"),
+    "movies": os.path.join(DATA_DIR, "movies.json"),
+    "edges":  os.path.join(DATA_DIR, "edges.json"),
+}
+for name, path in data_files.items():
+    if not os.path.exists(path):
+        print(f"❌ Không tìm thấy file: {path}")
+        print(f"   Hãy chạy scripts/01_collect_data.py trước.")
+        sys.exit(1)
+
+with open(data_files["actors"], encoding="utf-8") as f:
     actors = json.load(f)
-with open("data/movies.json", encoding="utf-8") as f:
+with open(data_files["movies"], encoding="utf-8") as f:
     movies = json.load(f)
-with open("data/edges.json", encoding="utf-8") as f:
+with open(data_files["edges"], encoding="utf-8") as f:
     edges = json.load(f)
 
 with driver.session() as s:

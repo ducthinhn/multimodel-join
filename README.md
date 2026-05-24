@@ -49,10 +49,11 @@ multimodel-join/
 │ ├── actors.json
 │ └── edges.json
 ├── scripts/
-│ ├── 01_collect_data.py # Thu thập dữ liệu TMDB
-│ ├── 02_import_mysql.py # Import vào MySQL
-│ ├── 03_import_neo4j.py # Import vào Neo4j
-│ └── 04_benchmark.py # Benchmark 2 chiến lược
+│   ├── 01_collect_data.py  # Thu thập dữ liệu TMDB
+│   ├── 02_import_mysql.py  # Import vào MySQL
+│   ├── 03_import_neo4j.py # Import vào Neo4j
+│   ├── benchmark.py        # Benchmark 2 chiến lược (Graph-first vs SQL-first)
+│   └── 04_test_failures.py # Fault tolerance test suite (13 kịch bản lỗi)
 ├── sql/
 │ └── schema.sql # Schema MySQL
 └── results/
@@ -86,7 +87,8 @@ TMDB_API_KEY=your_key_here
 python scripts/01_collect_data.py
 python scripts/02_import_mysql.py
 python scripts/03_import_neo4j.py
-python scripts/04_benchmark.py
+python scripts/benchmark.py
+python scripts/04_test_failures.py  # fault tolerance tests
 ```
 
 ---
@@ -120,3 +122,65 @@ MySQL → 29 phim > $100M → truyền 29 ID → Neo4j tìm actors
 - Khi filter SQL rất rộng (hầu hết phim đều qualify)
 - Khi cần duyệt graph nhiều bậc (Kevin Bacon Number > 2)
 - Khi dữ liệu graph thưa (ít edges)
+
+---
+
+## Fault Tolerance Test Suite
+
+### Tổng quan
+
+Hệ thống Multi-Model Join được kiểm thử với **13 kịch bản lỗi** phân tán,
+chứng minh khả năng chịu lỗi (fault tolerance) và phục hồi (recovery) trong
+môi trường multi-database.
+
+### Các kịch bản lỗi
+
+| ID  | Kịch bản | Mô tả | Mong đợi |
+|-----|----------|--------|-----------|
+| T1  | MySQL crash trước Graph-first | MySQL bị tắt hoàn toàn trước khi Graph-first chạy | Phát hiện lỗi kết nối, báo lỗi rõ ràng |
+| T2  | MySQL crash giữa Graph-first | Neo4j bước 1+2 xong → MySQL bước 3 fail | Partial result từ Neo4j được ghi nhận |
+| T3  | Neo4j crash trước SQL-first | Neo4j bị tắt hoàn toàn trước khi SQL-first chạy | Phát hiện lỗi Bolt connection |
+| T4  | Neo4j crash giữa SQL-first | MySQL bước 1 xong → Neo4j bước 2 fail | Partial result từ MySQL được ghi nhận |
+| T5  | Network partition | Cắt mạng giữa 2 container (dbnet disconnect) | Timeout hợp lý, không treo vô hạn |
+| T6  | MySQL chậm/timeout | MySQL không phản hồi (timeout) | Retry với exponential backoff |
+| T7  | Neo4j chậm/timeout | Neo4j transaction bị treo | Retry hoặc báo lỗi rõ ràng |
+| T8  | Total outage | Cả 2 node cùng crash đồng thời | Graceful degradation, recovery riêng từng node |
+| T9  | Coordinator crash | Python process bị kill trong lúc chạy | Database container vẫn chạy, resume được |
+| T10 | Data inconsistency | MySQL crash không graceful, dữ liệu bị rollback | Phát hiện result count bất thường, cảnh báo |
+| T11 | Retry thành công | MySQL crash ngắn + retry thành công | Coordinator tự retry, truy vấn hoàn tất |
+| T12 | Partial failure Graph-first | MySQL die ở bước 3/3, Neo4j steps 1+2 hoàn thành | Partial result được bảo toàn |
+| T13 | Partial failure SQL-first | Neo4j die ở bước 2/2, MySQL step 1 hoàn thành | Partial result được bảo toàn |
+
+### Cách chạy
+
+```bash
+# Chạy tất cả 13 kịch bản
+python scripts/04_test_failures.py
+
+# Chạy 1 test cụ thể
+python scripts/04_test_failures.py --test T5
+
+# Chạy nhiều test cụ thể
+python scripts/04_test_failures.py --test T1,T3,T5
+
+# Bỏ qua test cụ thể
+python scripts/04_test_failures.py --skip T9
+```
+
+### Đánh giá kết quả
+
+- **✅ PASSED** : Hệ thống xử lý lỗi đúng như mong đợi
+- **❌ FAILED** : Hệ thống không xử lý đúng → cần cải thiện
+
+Kết quả được lưu vào `results/fault_tolerance_results.txt`.
+
+### Các chiến lược fault tolerance
+
+1. **Retry với Exponential Backoff**: Khi database timeout, hệ thống retry
+   tối đa `MAX_RETRIES=3` lần với độ trễ tăng dần (1s → 2s → 4s)
+2. **Partial Result**: Khi một node fail giữa chừng, kết quả từ các bước
+   đã hoàn thành vẫn được ghi nhận và trả về
+3. **Graceful Degradation**: Hệ thống báo lỗi rõ ràng thay vì crash
+   không kiểm soát, cho phép coordinator quyết định hành động tiếp theo
+4. **Recovery Tracking**: Thời gian phục hồi (recovery time) được ghi
+   nhận cho từng node sau khi crash

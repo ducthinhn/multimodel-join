@@ -2,6 +2,7 @@ import requests
 import json
 import time
 import os
+import sys
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,10 +11,34 @@ API_KEY = os.getenv("TMDB_API_KEY")
 BASE = "https://api.themoviedb.org/3"
 KEVIN_ID = 4724  # ID cố định của Kevin Bacon trên TMDB
 
+# Đường dẫn tuyệt đối cho thư mục data
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+
+# ── Kiểm tra API key trước khi bắt đầu ─────────────────────────────────────
+if not API_KEY:
+    print("❌ LỖI: TMDB_API_KEY không được tìm thấy trong file .env")
+    print("   Hãy tạo file .env với nội dung: TMDB_API_KEY=your_key_here")
+    print("   Lấy API key tại: https://www.themoviedb.org/settings/api")
+    sys.exit(1)
+
+
 def tmdb_get(endpoint, params={}):
     params["api_key"] = API_KEY
-    r = requests.get(f"{BASE}/{endpoint}", params=params)
-    return r.json()
+    try:
+        r = requests.get(f"{BASE}/{endpoint}", params=params, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.Timeout:
+        print(f"    ⚠️ Timeout khi gọi {endpoint} — đợi và thử lại...")
+        time.sleep(2)
+        r = requests.get(f"{BASE}/{endpoint}", params=params, timeout=20)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠️ Lỗi mạng khi gọi {endpoint}: {e}")
+        raise
 
 def get_movie_cast(movie_id):
     data = tmdb_get(f"movie/{movie_id}/credits")
@@ -86,15 +111,15 @@ print(f"    Thêm {extra_count} phim mới")
 
 # Bước 4: Lưu ra file JSON
 print("\n[4] Lưu dữ liệu...")
-os.makedirs("data", exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
-with open("data/movies.json", "w", encoding="utf-8") as f:
+with open(os.path.join(DATA_DIR, "movies.json"), "w", encoding="utf-8") as f:
     json.dump(movies, f, ensure_ascii=False, indent=2)
 
-with open("data/actors.json", "w", encoding="utf-8") as f:
+with open(os.path.join(DATA_DIR, "actors.json"), "w", encoding="utf-8") as f:
     json.dump(actors, f, ensure_ascii=False, indent=2)
 
-with open("data/edges.json", "w", encoding="utf-8") as f:
+with open(os.path.join(DATA_DIR, "edges.json"), "w", encoding="utf-8") as f:
     json.dump(edges, f)
 
 print(f"""
