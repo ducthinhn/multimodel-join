@@ -7,4 +7,4 @@ CREATE TABLE IF NOT EXISTS movies (
     release_year INT,
     revenue BIGINT DEFAULT 0,
     INDEX idx_revenue (revenue)
-);.venv\Scripts\activate
+);
