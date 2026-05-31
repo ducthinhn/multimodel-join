@@ -1,4 +1,4 @@
-markdown# Multi-Model Join: Movies & Box Office
+# Multi-Model Join: Movies & Box Office
 
 Đề tài cuối kì môn Cơ sở dữ liệu phân tán.
 
@@ -40,24 +40,27 @@ So sánh 2 chiến lược join:
 
 ## Cấu trúc project
 
+```
 multimodel-join/
-├── docker-compose.yml # Neo4j + MySQL containers
-├── .env # API keys, passwords
-├── requirements.txt # Python dependencies
-├── data/ # Raw data từ TMDB API
-│ ├── movies.json
-│ ├── actors.json
-│ └── edges.json
+├── docker-compose.yml   # Neo4j + MySQL containers
+├── .env                # API keys, passwords
+├── requirements.txt    # Python dependencies
+├── data/
+│   ├── movies.json
+│   ├── actors.json
+│   └── edges.json
 ├── scripts/
-│   ├── 01_collect_data.py  # Thu thập dữ liệu TMDB
-│   ├── 02_import_mysql.py  # Import vào MySQL
-│   ├── 03_import_neo4j.py # Import vào Neo4j
-│   ├── benchmark.py        # Benchmark 2 chiến lược (Graph-first vs SQL-first)
-│   └── 04_test_failures.py # Fault tolerance test suite (13 kịch bản lỗi)
+│   ├── 01_collect_data.py    # Thu thập dữ liệu TMDB
+│   ├── 02_import_mysql.py   # Import vào MySQL
+│   ├── 03_import_neo4j.py   # Import vào Neo4j
+│   ├── benchmark.py          # Benchmark 2 chiến lược (Graph-first vs SQL-first)
+│   └── 04_test_failures.py  # Fault tolerance test suite (13 kịch bản lỗi)
 ├── sql/
-│ └── schema.sql # Schema MySQL
+│   └── schema.sql      # Schema MySQL
 └── results/
-└── benchmark_results.txt
+    ├── benchmark_results.txt
+    └── fault_tolerance_results.txt
+```
 
 ---
 
