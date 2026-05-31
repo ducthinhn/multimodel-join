@@ -25,15 +25,18 @@ def connect_mysql(max_retries=5, delay=3):
                 pool_name="benchmark_pool",
                 pool_size=3,
             )
-            conn.cursor().execute("SELECT 1")
-            print("    ✅ Kết nối MySQL thành công")
+            check_cursor = conn.cursor()  
+            check_cursor.execute("SELECT 1")
+            check_cursor.fetchall()       
+            check_cursor.close()
+            print("    Kết nối MySQL thành công")
             return conn
         except mysql.connector.Error as e:
-            print(f"    ⚠️  Kết nối MySQL lần {attempt+1}/{max_retries}: {e}")
+            print(f"   Kết nối MySQL lần {attempt+1}/{max_retries}: {e}")
             if attempt < max_retries - 1:
                 time.sleep(delay)
             else:
-                print("❌ Không thể kết nối MySQL. Thoát.")
+                print(" Không thể kết nối MySQL. Thoát.")
                 sys.exit(1)
 
 def connect_neo4j(max_retries=5, delay=3):
@@ -46,14 +49,14 @@ def connect_neo4j(max_retries=5, delay=3):
             )
             with driver.session() as s:
                 s.run("RETURN 1")
-            print("    ✅ Kết nối Neo4j thành công")
+            print("    Kết nối Neo4j thành công")
             return driver
         except Exception as e:
-            print(f"    ⚠️  Kết nối Neo4j lần {attempt+1}/{max_retries}: {e}")
+            print(f"   Kết nối Neo4j lần {attempt+1}/{max_retries}: {e}")
             if attempt < max_retries - 1:
                 time.sleep(delay)
             else:
-                print("❌ Không thể kết nối Neo4j. Thoát.")
+                print(" Không thể kết nối Neo4j. Thoát.")
                 sys.exit(1)
 
 print("    Đang kết nối databases...")
@@ -90,7 +93,7 @@ def strategy_graph_first():
 
     # Bước 3: MySQL lọc revenue > $100M
     t0 = time.perf_counter()
-    cursor = mysql_conn.cursor()
+    cursor = mysql_conn.cursor(buffered=True)
     try:
         if movie_ids:
             fmt = ",".join(["%s"] * len(movie_ids))
@@ -123,7 +126,7 @@ def strategy_sql_first():
 
     # Bước 1: MySQL lấy movie_ids có revenue > $100M
     t0 = time.perf_counter()
-    cursor = mysql_conn.cursor()
+    cursor = mysql_conn.cursor(buffered=True)
     try:
         cursor.execute("SELECT movie_id FROM movies WHERE revenue > %s", (REVENUE_THRESHOLD,))
         rich_movie_ids = [r[0] for r in cursor.fetchall()]

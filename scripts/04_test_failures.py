@@ -6,7 +6,7 @@ Fault Tolerance Test Suite cho Multi-Model Join.
 Mô phỏng các kịch bản thất bại phân tán và đo khả năng phục hồi
 của hệ thống khi chạy 2 chiến lược join (Graph-first vs SQL-first).
 
-Tái sử dụng strategy_graph_first() và strategy_sql_first() từ 04_benchmark.py.
+Tái sử dụng strategy_graph_first() và strategy_sql_first() từ benchmark.py.
 
 KỊCH BẢN LỖI CHI TIẾT:
 ─────────────────────────────────────────────────────────────────────────────

@@ -24,17 +24,22 @@ def connect_mysql(max_retries=5, delay=3):
                 database=os.getenv("MYSQL_DB"),
                 connection_timeout=10,
             )
-            # Verify connection
-            conn.cursor().execute("SELECT 1")
-            print("    ✅ Kết nối MySQL thành công")
+            # --- SỬA ĐOẠN VERIFY NÀY ---
+            check_cursor = conn.cursor()
+            check_cursor.execute("SELECT 1")
+            check_cursor.fetchall()  
+            check_cursor.close()     
+            # ---------------------------
+            
+            print("   Kết nối MySQL thành công")
             return conn
         except mysql.connector.Error as e:
-            print(f"    ⚠️  Lần {attempt+1}/{max_retries}: {e}")
+            print(f"   Lần {attempt+1}/{max_retries}: {e}")
             if attempt < max_retries - 1:
                 print(f"    Đợi {delay}s trước khi thử lại...")
                 time.sleep(delay)
             else:
-                print("❌ Không thể kết nối MySQL sau nhiều lần thử. Thoát.")
+                print(" Không thể kết nối MySQL sau nhiều lần thử. Thoát.")
                 sys.exit(1)
 
 import time
@@ -46,7 +51,7 @@ print("=== Import dữ liệu vào MySQL ===")
 # Đọc dữ liệu
 data_file = os.path.join(DATA_DIR, "movies.json")
 if not os.path.exists(data_file):
-    print(f"❌ Không tìm thấy file dữ liệu: {data_file}")
+    print(f" Không tìm thấy file dữ liệu: {data_file}")
     print(f"   Hãy chạy scripts/01_collect_data.py trước.")
     sys.exit(1)
 

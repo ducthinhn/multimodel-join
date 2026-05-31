@@ -25,15 +25,15 @@ def connect_neo4j(max_retries=5, delay=3):
             # Verify connection bằng ping
             with driver.session() as s:
                 s.run("RETURN 1")
-            print("    ✅ Kết nối Neo4j thành công")
+            print(" Kết nối Neo4j thành công")
             return driver
         except Exception as e:
-            print(f"    ⚠️  Lần {attempt+1}/{max_retries}: {e}")
+            print(f" Lần {attempt+1}/{max_retries}: {e}")
             if attempt < max_retries - 1:
                 print(f"    Đợi {delay}s trước khi thử lại...")
                 time.sleep(delay)
             else:
-                print("❌ Không thể kết nối Neo4j sau nhiều lần thử. Thoát.")
+                print(" Không thể kết nối Neo4j sau nhiều lần thử. Thoát.")
                 sys.exit(1)
 
 driver = connect_neo4j()
@@ -48,7 +48,7 @@ data_files = {
 }
 for name, path in data_files.items():
     if not os.path.exists(path):
-        print(f"❌ Không tìm thấy file: {path}")
+        print(f" Không tìm thấy file: {path}")
         print(f"   Hãy chạy scripts/01_collect_data.py trước.")
         sys.exit(1)
 

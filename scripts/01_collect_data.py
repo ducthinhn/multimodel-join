@@ -18,7 +18,7 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
 # ── Kiểm tra API key trước khi bắt đầu ─────────────────────────────────────
 if not API_KEY:
-    print("❌ LỖI: TMDB_API_KEY không được tìm thấy trong file .env")
+    print(" LỖI: TMDB_API_KEY không được tìm thấy trong file .env")
     print("   Hãy tạo file .env với nội dung: TMDB_API_KEY=your_key_here")
     print("   Lấy API key tại: https://www.themoviedb.org/settings/api")
     sys.exit(1)
@@ -31,13 +31,13 @@ def tmdb_get(endpoint, params={}):
         r.raise_for_status()
         return r.json()
     except requests.exceptions.Timeout:
-        print(f"    ⚠️ Timeout khi gọi {endpoint} — đợi và thử lại...")
+        print(f" Timeout khi gọi {endpoint} — đợi và thử lại...")
         time.sleep(2)
         r = requests.get(f"{BASE}/{endpoint}", params=params, timeout=20)
         r.raise_for_status()
         return r.json()
     except requests.exceptions.RequestException as e:
-        print(f"    ⚠️ Lỗi mạng khi gọi {endpoint}: {e}")
+        print(f" Lỗi mạng khi gọi {endpoint}: {e}")
         raise
 
 def get_movie_cast(movie_id):
