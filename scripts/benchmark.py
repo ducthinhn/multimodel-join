@@ -265,7 +265,7 @@ if __name__ == "__main__":
         gf_totals.append(gf_total)
         gf_steps_all.append(gf_steps)
 
-        movies_sf, movie_ids_sf, sf_steps, sf_total = strategy_sql_first()
+        results_sf, movie_ids_sf, sf_steps, sf_total = strategy_sql_first()
         sf_totals.append(sf_total)
         sf_steps_all.append(sf_steps)
 
@@ -307,6 +307,7 @@ if __name__ == "__main__":
     print(f"\n[3] Kết quả query:")
     print(f"    Actors liên kết Kevin Bacon : {len(actors_gf)}")
     print(f"    Phim doanh thu > $100M      : {len(movies_gf)}")
+    print(f"    SQL-first kết quả           : {len(results_sf)}")
 
     print(f"\n[4] Danh sách phim tìm được (Graph-first):")
     for row in movies_gf:
